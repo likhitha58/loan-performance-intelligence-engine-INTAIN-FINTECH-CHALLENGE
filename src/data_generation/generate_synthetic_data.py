@@ -748,11 +748,27 @@ def inject_anomalies(train_df, test_df, static_df, config, rng):
             for i in idx:
                 exc_acc[i].append(anomaly_type)
 
-        # 1. balance_inconsistency: current_balance suddenly increases
-        idx = sample_idx(df, rates["balance_inconsistency"], bump + 1)
-        df.loc[idx, "current_balance"] = df.loc[idx, "current_balance"] * 1.35 + 5000
+        # 1. balance_inconsistency:
+        # Force the current balance above the original balance so the
+        # injected anomaly creates a definite R006 violation.
+        idx = sample_idx(
+            df,
+            rates["balance_inconsistency"],
+            bump + 1,
+        )
+
+        df.loc[idx, "current_balance"] = (
+            df.loc[idx, "original_balance"] * 1.35
+        )
+
         mark(idx, "balance_inconsistency")
-        _log(log_rows, split_name, df, idx, "balance_inconsistency")
+        _log(
+            log_rows,
+            split_name,
+            df,
+            idx,
+            "balance_inconsistency",
+        )
 
         # 2. date_inconsistency: last_updated_at before reporting_month
         idx = sample_idx(df, rates["date_inconsistency"], bump + 2)
@@ -761,11 +777,32 @@ def inject_anomalies(train_df, test_df, static_df, config, rng):
         mark(idx, "date_inconsistency")
         _log(log_rows, split_name, df, idx, "date_inconsistency")
 
-        # 3. delinquency_status_inconsistency: DPD=0 but status DELINQUENT (or vice versa)
-        idx = sample_idx(df, rates["delinquency_status_inconsistency"], bump + 3)
-        df.loc[idx, "days_past_due"] = 0
-        mark(idx, "delinquency_status_inconsistency")
-        _log(log_rows, split_name, df, idx, "delinquency_status_inconsistency")
+        # 3. delinquency_status_inconsistency:
+        # Force DPD=0 on genuinely DELINQUENT rows so the injected
+        # anomaly creates a real status/DPD inconsistency.
+        eligible = df.index[df["current_status"] == "DELINQUENT"]
+        n = int(len(df) * rates["delinquency_status_inconsistency"])
+
+        if n and len(eligible):
+            local_rng = np.random.default_rng(
+                config["seed"] + bump + 3
+            )
+            n = min(n, len(eligible))
+            idx = local_rng.choice(
+                eligible.to_numpy(),
+                size=n,
+                replace=False,
+            )
+
+            df.loc[idx, "days_past_due"] = 0
+            mark(idx, "delinquency_status_inconsistency")
+            _log(
+                log_rows,
+                split_name,
+                df,
+                idx,
+                "delinquency_status_inconsistency",
+            )
 
         # 4. prepayment_status_inconsistency: prepayment_flag=1 but status != PREPAID
         eligible = df.index[df["current_status"] != "PREPAID"]
