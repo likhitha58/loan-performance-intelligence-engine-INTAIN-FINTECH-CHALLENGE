@@ -9,7 +9,7 @@ mortgage/loan portfolio.
 **ORGANIZER DATA CAN REPLACE THESE FILES LATER** with minimal downstream
 changes - see the schema notes in data_dictionary.md.
 
-Generated: 2026-08-25T18:41:43.199443+00:00
+Generated: 2026-08-25T19:53:08.175210+00:00
 
 ## 1. How the data was generated
 
@@ -201,5 +201,5 @@ and non-conflicting rows are present.
 - Anomaly rows logged: 8889
 - Servicer update rows: 80675 (conflicts: 6454)
 - Validation: 26 strict checks passed, 0 failed
-- Validation: 5253 expected anomaly-driven rule violations, 0 unexpected
+- Validation: 6188 expected anomaly-driven rule violations, 0 unexpected
 - Target-logic self-check: 427 rows checked, 0 mismatches
