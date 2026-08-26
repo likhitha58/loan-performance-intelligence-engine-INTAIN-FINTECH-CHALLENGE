@@ -199,3 +199,29 @@ def run_gradient_boosting(
         y_validation=y_validation.to_numpy(),
         validation_probabilities=probabilities,
     )
+    
+def fit_gradient_boosting(
+    train: pd.DataFrame,
+    target: str = "next_12m_default_flag",
+) -> tuple[Pipeline, list[str]]:
+    """Fit the gradient boosting pipeline on the chronological training data."""
+
+    if target not in train.columns:
+        raise ValueError(f"Unknown target: {target}")
+
+    train_part, _ = temporal_split(train)
+
+    train_features = build_features(train_part)
+    feature_columns = get_feature_columns(train_features)
+
+    X_train = train_features[feature_columns].copy()
+    y_train = train_part[target].astype(int)
+
+    pipeline = _build_pipeline(X_train)
+
+    pipeline.fit(
+        X_train,
+        y_train,
+    )
+
+    return pipeline, feature_columns
