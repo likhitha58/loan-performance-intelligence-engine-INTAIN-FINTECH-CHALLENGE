@@ -43,7 +43,7 @@ models/*
 # =========================
 reports/*
 !reports/.gitkeep
-
+!reports/model_comparison.md
 # =========================
 # Submission artifacts
 # =========================
