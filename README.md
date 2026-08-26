@@ -4,6 +4,10 @@
 
 An ML-first loan analytics and reviewer intelligence system developed for the Intain Campus FinTech Challenge 2026.
 
+The system combines data intelligence, leakage-safe machine learning, risk evidence, portfolio analytics, and reproducible reporting into an end-to-end loan performance intelligence pipeline.
+
+---
+
 ## Problem
 
 The challenge asks participants to build a serious AI engine for loan-level data covering:
@@ -19,32 +23,41 @@ The challenge asks participants to build a serious AI engine for loan-level data
 - LLM-assisted reviewer explanations
 - Agentic coding evidence
 
-The core predictive system will use data science and machine learning. The LLM layer will provide grounded reviewer assistance rather than replacing the predictive models.
+The predictive system uses data science and machine learning. The intelligence layer is designed to provide transparent, grounded reviewer assistance rather than replacing predictive models.
 
-## Project Status
+---
 
-Currently in Phase 0 — Environment & GitHub setup.
+## Current Implementation
 
-The organizer-provided data pack has not yet been incorporated into the repository.
+The project currently implements the core data intelligence, predictive modeling, risk intelligence, portfolio analytics, and reporting pipeline.
 
-## Development Environment
+### Data Intelligence
 
-- Python 3.13
-- VS Code
-- Jupyter
-- Git
-- GitHub
+Implemented capabilities include:
 
-## Repository Structure
+- Data pack ingestion
+- Automated dataset profiling
+- Missingness intelligence
+- Statistical outlier analysis
+- Loan relationship validation
+- Record quality scoring
+- Synthetic anomaly detection
+- Leakage-safe historical feature engineering
+
+### Predictive Modeling
+
+The modeling pipeline includes:
+
+- Chronological train/validation splitting
+- Leakage-safe feature selection
+- Baseline target evaluation
+- Multi-target evaluation
+- Histogram Gradient Boosting
+- ROC-AUC and PR-AUC evaluation
+- Threshold optimization
+- Prediction probability generation
+
+The current default prediction target is:
 
 ```text
-data/          Data and intermediate datasets
-src/           Reusable Python source code
-notebooks/     EDA and experimentation
-configs/       Configuration files
-models/        Model artifacts
-reports/       Generated analytical reports
-tests/         Automated tests
-app/           Final demonstration application
-docs/          Project documentation
-submission/    Final submission artifacts
+next_12m_default_flag
