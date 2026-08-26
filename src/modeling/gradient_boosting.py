@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-
+import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import HistGradientBoostingClassifier
@@ -31,6 +31,8 @@ class GradientBoostingResult:
     precision: float
     recall: float
     f1: float
+    y_validation: np.ndarray
+    validation_probabilities: np.ndarray
 
 
 def _prepare_data(
@@ -194,4 +196,6 @@ def run_gradient_boosting(
                 zero_division=0,
             )
         ),
+        y_validation=y_validation.to_numpy(),
+        validation_probabilities=probabilities,
     )
