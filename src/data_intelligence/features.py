@@ -24,6 +24,7 @@ IDENTIFIER_COLUMNS = {
 
 LEAKAGE_RISK_COLUMNS = {
     "next_state",
+    "loss_severity_band",
 }
 
 RAW_DATE_COLUMNS = {
