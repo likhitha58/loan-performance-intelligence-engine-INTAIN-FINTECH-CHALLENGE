@@ -215,3 +215,32 @@ def test_features_are_numeric_or_categorical_values():
 
     assert "balance_ratio" in result.columns
     assert "balance_change_1m" in result.columns
+    
+def test_feature_columns_exclude_future_and_raw_date_fields():
+    df = _sample_panel()
+
+    df["next_3m_delinquency_flag"] = 0
+    df["next_6m_delinquency_flag"] = 0
+    df["next_12m_default_flag"] = 0
+    df["next_12m_prepayment_flag"] = 0
+    df["next_state"] = "CURRENT"
+    df["exception_required"] = 0
+    df["exception_type"] = ""
+
+    columns = get_feature_columns(df)
+
+    forbidden = {
+        "loan_id",
+        "next_state",
+        "next_3m_delinquency_flag",
+        "next_6m_delinquency_flag",
+        "next_12m_default_flag",
+        "next_12m_prepayment_flag",
+        "exception_required",
+        "exception_type",
+        "reporting_month",
+        "origination_month",
+        "last_updated_at",
+    }
+
+    assert forbidden.isdisjoint(columns)

@@ -22,6 +22,15 @@ IDENTIFIER_COLUMNS = {
     "loan_id",
 }
 
+LEAKAGE_RISK_COLUMNS = {
+    "next_state",
+}
+
+RAW_DATE_COLUMNS = {
+    "reporting_month",
+    "origination_month",
+    "last_updated_at",
+}
 
 def _validate_columns(df: pd.DataFrame) -> None:
     """Validate that the minimum columns required for feature engineering exist."""
@@ -312,6 +321,8 @@ def get_feature_columns(
         TARGET_COLUMNS
         | QUALITY_COLUMNS
         | IDENTIFIER_COLUMNS
+        | LEAKAGE_RISK_COLUMNS
+        | RAW_DATE_COLUMNS
     )
 
     if additional_exclusions:
