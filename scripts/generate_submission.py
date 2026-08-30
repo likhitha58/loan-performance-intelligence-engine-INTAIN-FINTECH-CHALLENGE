@@ -1,13 +1,15 @@
-from __future__ import annotations
-
 from pathlib import Path
 
 import pandas as pd
-
+from src.modeling.split import temporal_split
 from src.data_intelligence.features import build_features
 from src.data_intelligence.loader import load_data_pack
 from src.modeling.anomaly import detect_anomalies
 from src.modeling.gradient_boosting import fit_gradient_boosting
+from src.modeling.global_explainability import (
+    build_feature_importance_table,
+    build_global_explainability_summary,
+)
 from src.modeling.prediction import generate_predictions
 from src.modeling.risk_intelligence import add_risk_evidence
 from src.modeling.risk_intelligence_output import (
@@ -22,55 +24,29 @@ from src.modeling.transition import (
     fit_transition_model,
     predict_next_state,
 )
-from src.submission import (
-    build_submission,
-    write_submission,
-)
+from src.submission import build_submission, write_submission
 
-
-# ---------------------------------------------------------------------
-# Prediction targets
-# ---------------------------------------------------------------------
 
 TARGETS = {
     "next_3m_delinquency_flag":
         "pred_next_3m_delinquency_prob",
-
     "next_6m_delinquency_flag":
         "pred_next_6m_delinquency_prob",
-
     "next_12m_default_flag":
         "pred_next_12m_default_prob",
-
     "next_12m_prepayment_flag":
         "pred_next_12m_prepayment_prob",
 }
 
 
-RISK_THRESHOLD = 0.20
-
-
-SEGMENT_COLUMNS = [
-    "credit_score_band",
-    "vintage",
-    "servicer",
-    "loan_state",
-]
-
-
-# ---------------------------------------------------------------------
-# Main pipeline
-# ---------------------------------------------------------------------
-
-def main() -> None:
-
-    # ================================================================
-    # 1. Load data
-    # ================================================================
-
+def main():
     print("=" * 70)
     print("LOAN PERFORMANCE INTELLIGENCE ENGINE")
     print("=" * 70)
+
+    # ------------------------------------------------------------------
+    # LOAD DATA
+    # ------------------------------------------------------------------
 
     print("\nLoading data...")
 
@@ -82,28 +58,19 @@ def main() -> None:
     print(f"  Train rows: {len(train)}")
     print(f"  Test rows:  {len(test)}")
 
-    # Ensure submission directory exists.
-    submission_dir = Path("submission")
-    submission_dir.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
-    # Base dataframe containing submission identifiers.
-    prediction_data = test[
-        [
-            "loan_id",
-            "reporting_month",
-        ]
-    ].copy()
-
-    # ================================================================
-    # 2. Train probability models
-    # ================================================================
+    # ------------------------------------------------------------------
+    # EVENT PREDICTION MODELS
+    # ------------------------------------------------------------------
 
     print("\n" + "-" * 70)
     print("TRAINING EVENT PREDICTION MODELS")
     print("-" * 70)
+
+    prediction_data = test[
+        ["loan_id", "reporting_month"]
+    ].copy()
+
+    global_importance_rows = []
 
     for target, output_column in TARGETS.items():
 
@@ -118,7 +85,7 @@ def main() -> None:
             test,
             pipeline,
             features,
-            threshold=RISK_THRESHOLD,
+            threshold=0.20,
         )
 
         prediction_data[output_column] = (
@@ -137,20 +104,73 @@ def main() -> None:
             f"{len(features)}"
         )
 
-    # ================================================================
-    # 3. Macro scenario simulation
-    # ================================================================
+        # --------------------------------------------------------------
+        # GLOBAL FEATURE IMPORTANCE
+        # --------------------------------------------------------------
+
+                # Use the same chronological training partition that
+        # fit_gradient_boosting() used for model fitting.
+        train_part, _ = temporal_split(train)
+
+        importance_features = build_features(train_part)
+
+        X_importance = importance_features[features].copy()
+        y_importance = train_part[target].astype(int)
+
+        importance_table = build_feature_importance_table(
+            pipeline,
+            features,
+            X=X_importance,
+            y=y_importance,
+        )
+
+        importance_summary = (
+            build_global_explainability_summary(
+                model_name=target,
+                importance_table=importance_table,
+                top_n=len(importance_table),
+            )
+        )
+
+        global_importance_rows.append(
+            importance_summary
+        )
+
+    # ------------------------------------------------------------------
+    # SAVE GLOBAL EXPLAINABILITY REPORT
+    # ------------------------------------------------------------------
+
+    print("\n" + "-" * 70)
+    print("BUILDING GLOBAL EXPLAINABILITY REPORT")
+    print("-" * 70)
+
+    global_importance = pd.concat(
+        global_importance_rows,
+        ignore_index=True,
+    )
+
+    global_importance_path = Path(
+        "submission/global_feature_importance.csv"
+    )
+
+    global_importance.to_csv(
+        global_importance_path,
+        index=False,
+    )
+
+    print(
+        "  Global feature importance report:",
+        global_importance_path,
+    )
+
+    # ------------------------------------------------------------------
+    # MACRO SCENARIO ANALYSIS
+    # ------------------------------------------------------------------
 
     print("\n" + "-" * 70)
     print("RUNNING MACRO SCENARIO ANALYSIS")
     print("-" * 70)
 
-    # Combine predictions with the original test attributes.
-    #
-    # The scenario engine needs both:
-    #   - model probabilities
-    #   - portfolio/loan attributes
-    #
     scenario_predictions = prediction_data.merge(
         test,
         on=[
@@ -158,42 +178,36 @@ def main() -> None:
             "reporting_month",
         ],
         how="left",
-        suffixes=(
-            "",
-            "_source",
-        ),
+        suffixes=("", "_source"),
     )
 
     scenario_outputs = run_all_macro_scenarios(
         scenario_predictions,
-        segment_columns=SEGMENT_COLUMNS,
+        segment_columns=[
+            "credit_score_band",
+            "vintage",
+            "servicer",
+            "loan_state",
+        ],
     )
-
-    # ---------------------------------------------------------------
-    # 3A. Portfolio-level scenario summary
-    # ---------------------------------------------------------------
 
     scenario_summary_rows = []
 
     for scenario_name, scenario_output in (
         scenario_outputs.items()
     ):
-
         summary = summarize_macro_scenario(
             scenario_output
         )
 
-        scenario_summary_rows.append(
-            summary
-        )
+        scenario_summary_rows.append(summary)
 
     scenario_summary = pd.DataFrame(
         scenario_summary_rows
     )
 
-    scenario_summary_path = (
-        submission_dir
-        / "scenario_summary.csv"
+    scenario_summary_path = Path(
+        "submission/scenario_summary.csv"
     )
 
     scenario_summary.to_csv(
@@ -201,24 +215,22 @@ def main() -> None:
         index=False,
     )
 
-    print(
-        f"\n  Portfolio scenario report: "
-        f"{scenario_summary_path}"
-    )
-
-    # ---------------------------------------------------------------
-    # 3B. Segment-level scenario impacts
-    # ---------------------------------------------------------------
-
     segment_rows = []
 
     for scenario_name, scenario_output in (
         scenario_outputs.items()
     ):
 
-        for segment_column in SEGMENT_COLUMNS:
+        for segment_column in [
+            "credit_score_band",
+            "vintage",
+            "servicer",
+            "loan_state",
+        ]:
 
-            if segment_column not in scenario_output.columns:
+            if segment_column not in (
+                scenario_output.columns
+            ):
                 continue
 
             segment_result = (
@@ -228,7 +240,6 @@ def main() -> None:
                 )
             )
 
-            # Add scenario metadata.
             segment_result.insert(
                 0,
                 "scenario",
@@ -252,32 +263,34 @@ def main() -> None:
             ignore_index=True,
         )
 
-        scenario_segment_path = (
-            submission_dir
-            / "scenario_segment_impacts.csv"
-        )
-
         scenario_segment_impacts.to_csv(
-            scenario_segment_path,
+            "submission/scenario_segment_impacts.csv",
             index=False,
         )
 
-        print(
-            f"  Segment scenario report: "
-            f"{scenario_segment_path}"
-        )
+    print(
+        "  Portfolio scenario report:",
+        scenario_summary_path,
+    )
 
-    # ================================================================
-    # 4. Next-state / transition model
-    # ================================================================
+    print(
+        "  Segment scenario report:",
+        "submission/scenario_segment_impacts.csv",
+    )
+
+    # ------------------------------------------------------------------
+    # NEXT-STATE TRANSITION MODEL
+    # ------------------------------------------------------------------
 
     print("\n" + "-" * 70)
     print("TRAINING NEXT-STATE TRANSITION MODEL")
     print("-" * 70)
 
-    transition_pipeline, transition_features, metrics = (
-        fit_transition_model(train)
-    )
+    (
+        transition_pipeline,
+        transition_features,
+        metrics,
+    ) = fit_transition_model(train)
 
     print(
         f"  Accuracy: "
@@ -308,56 +321,48 @@ def main() -> None:
         ].to_numpy()
     )
 
-    transition_data["next_state_confidence"] = (
+    transition_data[
+        "next_state_confidence"
+    ] = (
         transition_predictions[
             "next_state_confidence"
         ].to_numpy()
     )
 
-    # ================================================================
-    # 5. Anomaly detection
-    # ================================================================
+    # ------------------------------------------------------------------
+    # ANOMALY DETECTION
+    # ------------------------------------------------------------------
 
     print("\n" + "-" * 70)
     print("DETECTING ANOMALIES")
     print("-" * 70)
 
-    anomaly_data = detect_anomalies(
-        test
-    )
+    anomaly_data = detect_anomalies(test)
 
-    anomaly_count = int(
-        (
-            anomaly_data[
-                "exception_type"
-            ] != ""
-        ).sum()
+    anomaly_count = (
+        anomaly_data["exception_type"] != ""
+    ).sum()
+
+    print(
+        "  Anomalies detected:",
+        anomaly_count,
     )
 
     print(
-        f"  Anomalies detected: "
-        f"{anomaly_count}"
+        "  Normal observations:",
+        len(anomaly_data) - anomaly_count,
     )
 
-    print(
-        f"  Normal observations: "
-        f"{len(anomaly_data) - anomaly_count}"
-    )
-
-    # ================================================================
-    # 6. Risk evidence and explainability
-    # ================================================================
+    # ------------------------------------------------------------------
+    # GROUNDED RISK EVIDENCE
+    # ------------------------------------------------------------------
 
     print("\n" + "-" * 70)
     print("BUILDING RISK EVIDENCE")
     print("-" * 70)
 
-    test_features = build_features(
-        test
-    )
+    test_features = build_features(test)
 
-    # The risk intelligence module currently
-    # uses the 12-month default probability.
     risk_predictions = prediction_data[
         [
             "loan_id",
@@ -376,13 +381,10 @@ def main() -> None:
     risk_predictions["risk_flag"] = (
         risk_predictions[
             "predicted_probability"
-        ]
-        >= RISK_THRESHOLD
+        ] >= 0.20
     )
 
-    risk_predictions["threshold"] = (
-        RISK_THRESHOLD
-    )
+    risk_predictions["threshold"] = 0.20
 
     risk_evidence = add_risk_evidence(
         risk_predictions,
@@ -395,16 +397,13 @@ def main() -> None:
         )
     )
 
-    # Normalize the evidence into the
-    # "reasons" field expected by submission.py.
     risk_output["reasons"] = (
-        risk_output[
-            "risk_evidence"
-        ].apply(
-            lambda values:
+        risk_output["risk_evidence"].apply(
+            lambda values: (
                 values
                 if isinstance(values, list)
                 else []
+            )
         )
     )
 
@@ -418,13 +417,14 @@ def main() -> None:
     ]
 
     print(
-        f"  Risk evidence generated for "
-        f"{len(risk_output)} observations"
+        "  Risk evidence generated for",
+        len(risk_output),
+        "observations",
     )
 
-    # ================================================================
-    # 7. Build final submission
-    # ================================================================
+    # ------------------------------------------------------------------
+    # FINAL SUBMISSION
+    # ------------------------------------------------------------------
 
     print("\n" + "-" * 70)
     print("BUILDING FINAL SUBMISSION")
@@ -437,9 +437,8 @@ def main() -> None:
         explanation_data=risk_output,
     )
 
-    output_path = (
-        submission_dir
-        / "submission.csv"
+    output_path = Path(
+        "submission/submission.csv"
     )
 
     write_submission(
@@ -447,9 +446,9 @@ def main() -> None:
         output_path,
     )
 
-    # ================================================================
-    # 8. Validate final submission
-    # ================================================================
+    # ------------------------------------------------------------------
+    # FINAL VALIDATION
+    # ------------------------------------------------------------------
 
     print("\n" + "-" * 70)
     print("VALIDATING FINAL SUBMISSION")
@@ -464,36 +463,31 @@ def main() -> None:
     )
 
     print(
-        f"  Null values: "
-        f"{int(submission.isna().sum().sum())}"
+        "  Null values:",
+        int(submission.isna().sum().sum()),
     )
 
-    duplicate_count = int(
-        submission.duplicated(
-            [
-                "loan_id",
-                "reporting_month",
-            ]
-        ).sum()
+    duplicate_count = submission.duplicated(
+        [
+            "loan_id",
+            "reporting_month",
+        ]
+    ).sum()
+
+    print(
+        "  Duplicate loan-month rows:",
+        int(duplicate_count),
     )
 
     print(
-        f"  Duplicate loan-month rows: "
-        f"{duplicate_count}"
-    )
-
-    print(
-        f"  Output: {output_path}"
+        "  Output:",
+        output_path,
     )
 
     print("\n" + "=" * 70)
     print("SUBMISSION GENERATION COMPLETE")
     print("=" * 70)
 
-
-# ---------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------
 
 if __name__ == "__main__":
     main()

@@ -1,6 +1,7 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import pandas as pd
+from sklearn.inspection import permutation_importance
 
 
 REQUIRED_IMPORTANCE_COLUMNS = {
@@ -12,12 +13,24 @@ REQUIRED_IMPORTANCE_COLUMNS = {
 def build_feature_importance_table(
     pipeline,
     feature_columns: list[str],
+    X: pd.DataFrame | None = None,
+    y: pd.Series | None = None,
+    *,
+    n_repeats: int = 3,
+    sample_size: int = 5000,
+    random_state: int = 42,
 ) -> pd.DataFrame:
     """
-    Extract global feature importance from a fitted tree-based pipeline.
+    Build a global feature-importance table for a fitted pipeline.
 
-    The function supports pipelines whose final estimator exposes
-    feature_importances_.
+    Native feature_importances_ are used when available.
+
+    For estimators such as HistGradientBoostingClassifier that do not
+    expose native feature_importances_, permutation importance is
+    calculated on a deterministic sample of the training data.
+
+    Sampling keeps global explainability computationally practical
+    without changing the fitted model or its predictions.
     """
 
     if pipeline is None:
@@ -33,25 +46,96 @@ def build_feature_importance_table(
 
     estimator = pipeline.steps[-1][1]
 
-    if not hasattr(estimator, "feature_importances_"):
-        raise ValueError(
-            "The final estimator does not expose feature_importances_."
+    # --------------------------------------------------------------
+    # Native feature importance
+    # --------------------------------------------------------------
+
+    if hasattr(estimator, "feature_importances_"):
+        importances = estimator.feature_importances_
+
+        if len(importances) != len(feature_columns):
+            raise ValueError(
+                "Number of feature importances does not match "
+                "feature_columns."
+            )
+
+        result = pd.DataFrame(
+            {
+                "feature": feature_columns,
+                "importance": importances,
+            }
         )
 
-    importances = estimator.feature_importances_
+    # --------------------------------------------------------------
+    # Permutation importance fallback
+    # --------------------------------------------------------------
 
-    if len(importances) != len(feature_columns):
-        raise ValueError(
-            "Number of feature importances does not match "
-            "feature_columns."
+    else:
+        if X is None or y is None:
+            raise ValueError(
+                "X and y are required when the final estimator "
+                "does not expose feature_importances_."
+            )
+
+        if sample_size <= 0:
+            raise ValueError(
+                "sample_size must be greater than zero."
+            )
+
+        if n_repeats <= 0:
+            raise ValueError(
+                "n_repeats must be greater than zero."
+            )
+
+        missing = set(feature_columns) - set(X.columns)
+
+        if missing:
+            raise ValueError(
+                "X is missing required feature columns: "
+                f"{sorted(missing)}"
+            )
+
+        if len(X) != len(y):
+            raise ValueError(
+                "X and y must contain the same number of observations."
+            )
+
+        X_used = X[feature_columns].copy()
+        y_used = y.copy()
+
+        # Deterministic sampling keeps runtime bounded while
+        # preserving a representative global importance estimate.
+        if len(X_used) > sample_size:
+            sample_indices = (
+                X_used.sample(
+                    n=sample_size,
+                    random_state=random_state,
+                ).index
+            )
+
+            X_used = X_used.loc[sample_indices]
+            y_used = y_used.loc[sample_indices]
+
+        permutation = permutation_importance(
+            pipeline,
+            X_used,
+            y_used,
+            n_repeats=n_repeats,
+            random_state=random_state,
+            scoring="roc_auc",
+            n_jobs=-1,
         )
 
-    result = pd.DataFrame(
-        {
-            "feature": feature_columns,
-            "importance": importances,
-        }
-    )
+        result = pd.DataFrame(
+            {
+                "feature": feature_columns,
+                "importance": permutation.importances_mean,
+            }
+        )
+
+    # --------------------------------------------------------------
+    # Validate and format
+    # --------------------------------------------------------------
 
     result["importance"] = pd.to_numeric(
         result["importance"],
@@ -64,8 +148,8 @@ def build_feature_importance_table(
         )
 
     result = result.sort_values(
-        "importance",
-        ascending=False,
+        ["importance", "feature"],
+        ascending=[False, True],
     ).reset_index(drop=True)
 
     total = result["importance"].sum()
@@ -77,9 +161,7 @@ def build_feature_importance_table(
     else:
         result["importance_share"] = 0.0
 
-    result["rank"] = (
-        result.index + 1
-    )
+    result["rank"] = result.index + 1
 
     return result[
         [
