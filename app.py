@@ -324,7 +324,7 @@ elif section == "Loan Explorer":
     ].iloc[0]
 
     st.subheader(
-        f"Loan {selected_loan} — {selected_month}"
+        f"Loan {selected_loan} â€” {selected_month}"
     )
 
     c1, c2, c3, c4 = st.columns(4)
