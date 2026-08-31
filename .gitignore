@@ -47,8 +47,7 @@ reports/*
 # =========================
 # Submission artifacts
 # =========================
-submission/*
-!submission/.gitkeep
+# Keep final challenge outputs under version control.
 
 # =========================
 # OS / IDE
