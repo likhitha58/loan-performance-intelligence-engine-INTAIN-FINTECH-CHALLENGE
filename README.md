@@ -1,57 +1,146 @@
 # Loan Performance Intelligence Engine
 
-## Intain Campus FinTech Challenge 2026 — AI Track
+## INTAIN Fintech Challenge — Loan Performance Intelligence & Reviewer Risk Intelligence
 
-An ML-first loan analytics and reviewer intelligence system for predicting future loan events, detecting anomalies, explaining model behavior, and supporting portfolio-level risk decisions.
+An end-to-end machine learning and reviewer-risk-intelligence platform for analyzing loan performance, predicting future credit events, detecting anomalous observations, understanding portfolio risk, simulating macroeconomic scenarios, and translating model outputs into actionable reviewer intelligence.
 
-## Key Capabilities
+---
 
-- Data profiling and quality intelligence
-- Leakage-safe historical feature engineering
-- Time-aware model validation
-- Multi-target loan-event prediction
-- Histogram Gradient Boosting models
-- Probability calibration and threshold optimization
-- Global feature importance
+## 1. Executive Summary
+
+The **Loan Performance Intelligence Engine** is a decision-support platform developed for the **INTAIN Fintech Challenge**.
+
+The system transforms historical loan-performance data into a structured intelligence layer that helps portfolio reviewers answer:
+
+- Which loans are likely to deteriorate?
+- Which loans require attention?
+- What evidence is driving the predicted risk?
+- What state is a loan likely to transition into?
+- Which loan observations appear anomalous?
+- Which portfolio segments are exposed to adverse scenarios?
+- How should reviewers prioritize their workload?
+- How can model predictions be converted into understandable explanations and recommended actions?
+
+Rather than treating machine-learning predictions as standalone outputs, the solution connects:
+
+**Data → Features → Predictions → Anomalies → Evidence → Risk → Actions → Explanations → Portfolio Intelligence → Reviewer Experience**
+
+The final system includes:
+
+- Data intelligence and quality checks
+- Temporal and behavioral feature engineering
+- Multi-horizon delinquency prediction
+- 12-month default prediction
+- 12-month prepayment prediction
 - Next-state transition prediction
-- Anomaly detection
-- Risk evidence and recommended actions
+- Probability calibration and thresholding components
+- Isolation Forest anomaly detection
+- Risk evidence generation
+- Risk-tier classification
+- Reviewer action prioritization
+- Loan-level explanations
+- Global feature importance
 - Macro scenario simulation
-- Portfolio and segment-level intelligence
+- Portfolio and segment intelligence
+- Evidence-grounded LLM reviewer assistance
 - Streamlit reviewer dashboard
-- Automated test coverage
+- Automated submission generation
+- Automated validation
+- Comprehensive automated testing
 
-## Prediction Targets
+The system is designed as a **reviewer decision-support system**, not as an autonomous lending or credit-approval engine.
 
-The engine generates probabilities for:
+---
 
-- `next_3m_delinquency_flag`
-- `next_6m_delinquency_flag`
-- `next_12m_default_flag`
-- `next_12m_prepayment_flag`
+# 2. Challenge Context
 
-It also generates:
+The challenge focuses on extracting actionable intelligence from loan-performance information.
 
-- Next predicted loan state
-- Anomaly score
-- Exception type
-- Top risk drivers
-- Recommended action
-- Confidence score
+A useful solution must go beyond simply predicting whether an event will occur. A reviewer needs to understand:
 
-## Project Structure
+1. **What is likely to happen?**
+2. **When might it happen?**
+3. **Why is the observation considered risky?**
+4. **How severe is the risk?**
+5. **What should the reviewer do next?**
+6. **Is the observation unusual compared with the broader portfolio?**
+7. **How could changing macroeconomic conditions affect the portfolio?**
+
+The Loan Performance Intelligence Engine addresses these requirements through a layered architecture combining predictive modeling, anomaly detection, explainability, scenario analysis, and reviewer-oriented decision support.
+
+---
+
+# 3. Solution Overview
+
+The solution follows the following high-level workflow:
 
 ```text
-src/
-  data_intelligence/     Data loading, profiling, features and quality
-  modeling/              Prediction, anomaly, explainability and risk intelligence
-  reporting/             Portfolio reporting
-
-scripts/
-  generate_submission.py End-to-end submission generation
-  run_pipeline.py        Pipeline execution
-
-app.py                   Streamlit dashboard
-tests/                   Automated test suite
-submission/              Generated submission artifacts
-docs/                    Project plan and development documentation
+                     RAW LOAN DATA
+                           │
+                           ▼
+              ┌─────────────────────────┐
+              │   DATA INTELLIGENCE     │
+              │                         │
+              │ • Profiling             │
+              │ • Missingness            │
+              │ • Outliers               │
+              │ • Record Quality         │
+              │ • Relationship Checks    │
+              └────────────┬────────────┘
+                           │
+                           ▼
+              ┌─────────────────────────┐
+              │  FEATURE ENGINEERING    │
+              │                         │
+              │ • Historical Behavior    │
+              │ • Delinquency Signals   │
+              │ • Status Changes        │
+              │ • Credit / LTV / DTI    │
+              │ • Modification Signals  │
+              └────────────┬────────────┘
+                           │
+             ┌─────────────┼─────────────┐
+             │             │             │
+             ▼             ▼             ▼
+       EVENT MODELS    STATE MODEL    ANOMALY MODEL
+             │             │             │
+             │             │             │
+       ┌─────┴─────┐       │       Isolation Forest
+       │           │       │             │
+       ▼           ▼       ▼             ▼
+      3M          6M    Next State     Anomaly
+   Delinquency Delinq. Prediction      Score
+       │           │       │             │
+       └───────────┼───────┼─────────────┘
+                   │
+                   ▼
+          ┌───────────────────────┐
+          │   RISK INTELLIGENCE   │
+          │                       │
+          │ • Risk Tier           │
+          │ • Evidence Category   │
+          │ • Action Priority     │
+          │ • Confidence          │
+          └───────────┬───────────┘
+                      │
+        ┌─────────────┼──────────────┐
+        │             │              │
+        ▼             ▼              ▼
+ EXPLAINABILITY   SCENARIO       PORTFOLIO
+                  ANALYSIS       INTELLIGENCE
+        │             │              │
+        └─────────────┼──────────────┘
+                      │
+                      ▼
+          ┌───────────────────────┐
+          │ REVIEWER EXPERIENCE   │
+          │                       │
+          │ • Streamlit Dashboard │
+          │ • Reviewer Queue      │
+          │ • Loan Explanations   │
+          │ • Portfolio Insights  │
+          └───────────┬───────────┘
+                      │
+                      ▼
+             FINAL SUBMISSION
+          submission/submission.csv
