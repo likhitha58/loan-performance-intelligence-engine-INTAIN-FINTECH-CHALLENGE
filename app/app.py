@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pandas as pd
 import streamlit as st
 
 from src.data_intelligence.loader import load_data_pack
@@ -60,11 +61,46 @@ def load_risk_output():
     return risk_output, features, report
 
 
+@st.cache_data
+def load_submission():
+    """Load the generated challenge submission."""
+    return pd.read_csv("submission/submission.csv")
+
+
 risk_output, features, report = load_risk_output()
+submission = load_submission()
 
 summary = report["portfolio_summary"]
 
-col1, col2, col3, col4 = st.columns(4)
+
+# -------------------------------------------------------------------
+# Anomaly count
+# -------------------------------------------------------------------
+# anomaly_score is a continuous normalized score.
+# It is NOT an anomaly flag because normal observations can have
+# anomaly_score > 0.
+#
+# exception_type == "ANOMALY" is the actual anomaly classification.
+# -------------------------------------------------------------------
+
+if "exception_type" in submission.columns:
+    anomaly_count = int(
+        submission["exception_type"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+        .eq("ANOMALY")
+        .sum()
+    )
+else:
+    anomaly_count = 0
+
+
+# -------------------------------------------------------------------
+# Portfolio Metrics
+# -------------------------------------------------------------------
+
+col1, col2, col3, col4, col5 = st.columns(5)
 
 col1.metric(
     "Total Observations",
@@ -86,7 +122,18 @@ col4.metric(
     f"{summary['flagged_rate']:.2%}",
 )
 
+col5.metric(
+    "Anomalous Observations",
+    f"{anomaly_count:,}",
+)
+
+
 st.divider()
+
+
+# -------------------------------------------------------------------
+# Risk Tier Distribution
+# -------------------------------------------------------------------
 
 st.subheader("Risk Tier Distribution")
 
@@ -94,9 +141,14 @@ tier_summary = report["risk_tier_summary"]
 
 st.dataframe(
     tier_summary,
-    use_container_width=True,
+    width="stretch",
     hide_index=True,
 )
+
+
+# -------------------------------------------------------------------
+# Reviewer Queue
+# -------------------------------------------------------------------
 
 st.subheader("Reviewer Queue")
 
@@ -115,13 +167,19 @@ st.dataframe(
             "evidence_category",
         ]
     ].head(100),
-    use_container_width=True,
+    width="stretch",
     hide_index=True,
 )
+
+
+# -------------------------------------------------------------------
+# Loan Explanation
+# -------------------------------------------------------------------
 
 st.subheader("Loan Explanation")
 
 if not flagged.empty:
+
     selected_loan = st.selectbox(
         "Select a flagged loan",
         flagged["loan_id"].unique(),
@@ -136,6 +194,7 @@ if not flagged.empty:
     ]
 
     if not feature_row.empty:
+
         row = selected.copy()
 
         for column in [
@@ -157,9 +216,11 @@ if not flagged.empty:
         st.write(
             f"**Risk Tier:** {explanation['risk_tier']}"
         )
+
         st.write(
             f"**Action:** {explanation['action_priority']}"
         )
+
         st.write(
             f"**Evidence Category:** "
             f"{explanation['evidence_category']}"
@@ -170,4 +231,6 @@ if not flagged.empty:
         for reason in explanation["reasons"]:
             st.write(f"- {reason}")
 
-        st.info(explanation["explanation"])
+        st.info(
+            explanation["explanation"]
+        )

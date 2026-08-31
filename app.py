@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 
 import pandas as pd
 import streamlit as st
@@ -10,7 +10,7 @@ import streamlit as st
 
 st.set_page_config(
     page_title="Loan Performance Intelligence Engine",
-    page_icon="📊",
+    page_icon="??",
     layout="wide",
 )
 
@@ -267,7 +267,7 @@ if section == "Portfolio Overview":
 
         st.dataframe(
             action_counts,
-            use_container_width=True,
+            width="stretch",
         )
 
     else:
@@ -324,7 +324,7 @@ elif section == "Loan Explorer":
     ].iloc[0]
 
     st.subheader(
-        f"Loan {selected_loan} — {selected_month}"
+        f"Loan {selected_loan} � {selected_month}"
     )
 
     c1, c2, c3, c4 = st.columns(4)
@@ -519,7 +519,7 @@ elif section == "Global Explainability":
 
         st.dataframe(
             display_data,
-            use_container_width=True,
+            width="stretch",
         )
 
 
@@ -543,7 +543,7 @@ elif section == "Scenario Analysis":
 
         st.dataframe(
             scenario_summary,
-            use_container_width=True,
+            width="stretch",
         )
 
     st.divider()
@@ -560,7 +560,7 @@ elif section == "Scenario Analysis":
 
         st.dataframe(
             segment_impacts,
-            use_container_width=True,
+            width="stretch",
         )
 
 
