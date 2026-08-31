@@ -2,62 +2,56 @@
 
 ## Intain Campus FinTech Challenge 2026 — AI Track
 
-An ML-first loan analytics and reviewer intelligence system developed for the Intain Campus FinTech Challenge 2026.
+An ML-first loan analytics and reviewer intelligence system for predicting future loan events, detecting anomalies, explaining model behavior, and supporting portfolio-level risk decisions.
 
-The system combines data intelligence, leakage-safe machine learning, risk evidence, portfolio analytics, and reproducible reporting into an end-to-end loan performance intelligence pipeline.
+## Key Capabilities
 
----
-
-## Problem
-
-The challenge asks participants to build a serious AI engine for loan-level data covering:
-
-- Data profiling
-- Feature engineering
-- Supervised prediction
-- Time-aware validation
-- Anomaly detection
-- Explainability
-- Model calibration
-- Scenario simulation
-- LLM-assisted reviewer explanations
-- Agentic coding evidence
-
-The predictive system uses data science and machine learning. The intelligence layer is designed to provide transparent, grounded reviewer assistance rather than replacing predictive models.
-
----
-
-## Current Implementation
-
-The project currently implements the core data intelligence, predictive modeling, risk intelligence, portfolio analytics, and reporting pipeline.
-
-### Data Intelligence
-
-Implemented capabilities include:
-
-- Data pack ingestion
-- Automated dataset profiling
-- Missingness intelligence
-- Statistical outlier analysis
-- Loan relationship validation
-- Record quality scoring
-- Synthetic anomaly detection
+- Data profiling and quality intelligence
 - Leakage-safe historical feature engineering
+- Time-aware model validation
+- Multi-target loan-event prediction
+- Histogram Gradient Boosting models
+- Probability calibration and threshold optimization
+- Global feature importance
+- Next-state transition prediction
+- Anomaly detection
+- Risk evidence and recommended actions
+- Macro scenario simulation
+- Portfolio and segment-level intelligence
+- Streamlit reviewer dashboard
+- Automated test coverage
 
-### Predictive Modeling
+## Prediction Targets
 
-The modeling pipeline includes:
+The engine generates probabilities for:
 
-- Chronological train/validation splitting
-- Leakage-safe feature selection
-- Baseline target evaluation
-- Multi-target evaluation
-- Histogram Gradient Boosting
-- ROC-AUC and PR-AUC evaluation
-- Threshold optimization
-- Prediction probability generation
+- `next_3m_delinquency_flag`
+- `next_6m_delinquency_flag`
+- `next_12m_default_flag`
+- `next_12m_prepayment_flag`
 
-The current default prediction target is:
+It also generates:
+
+- Next predicted loan state
+- Anomaly score
+- Exception type
+- Top risk drivers
+- Recommended action
+- Confidence score
+
+## Project Structure
 
 ```text
-next_12m_default_flag
+src/
+  data_intelligence/     Data loading, profiling, features and quality
+  modeling/              Prediction, anomaly, explainability and risk intelligence
+  reporting/             Portfolio reporting
+
+scripts/
+  generate_submission.py End-to-end submission generation
+  run_pipeline.py        Pipeline execution
+
+app.py                   Streamlit dashboard
+tests/                   Automated test suite
+submission/              Generated submission artifacts
+docs/                    Project plan and development documentation
